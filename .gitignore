@@ -1,0 +1,21 @@
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Editores
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Logs / temporales
+*.log
+*.tmp
+*.bak
+
+# Node (por si se amplía en el futuro)
+node_modules/
+dist/
+build/

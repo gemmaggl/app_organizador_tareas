@@ -1,0 +1,331 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Organizador de Tareas por Prioridad</title>
+<style>
+  :root {
+    --bg: #f1f5f9;
+    --card: #ffffff;
+    --text: #0f172a;
+    --muted: #64748b;
+    --border: #e2e8f0;
+    --primary: #4f46e5;
+    --primary-dark: #4338ca;
+    --critica: #dc2626;
+    --alta: #ea580c;
+    --media: #ca8a04;
+    --baja: #0284c7;
+    --muybaja: #64748b;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    background: var(--bg); color: var(--text);
+  }
+  header {
+    background: linear-gradient(135deg, #4f46e5, #7c3aed);
+    color: white; padding: 28px 20px; text-align: center;
+  }
+  header h1 { margin: 0 0 6px; font-size: 1.8rem; }
+  header p { margin: 0; opacity: .9; }
+  main {
+    max-width: 1100px; margin: -18px auto 40px; padding: 0 16px;
+    display: grid; grid-template-columns: 360px 1fr; gap: 18px;
+  }
+  @media (max-width: 900px) { main { grid-template-columns: 1fr; } }
+  .card {
+    background: var(--card); border: 1px solid var(--border);
+    border-radius: 14px; padding: 18px;
+    box-shadow: 0 4px 14px rgba(15,23,42,.06);
+    height: fit-content;
+  }
+  .card h2 { margin: 0 0 12px; font-size: 1.15rem; }
+  label { display: block; font-size: .85rem; font-weight: 600; margin: 12px 0 6px; }
+  input, select, textarea {
+    width: 100%; padding: 10px 12px; border-radius: 10px;
+    border: 1px solid var(--border); font-size: .95rem; font-family: inherit;
+    background: #fff; color: inherit;
+  }
+  textarea { min-height: 80px; resize: vertical; }
+  input:focus, select:focus, textarea:focus {
+    outline: 2px solid var(--primary); border-color: var(--primary);
+  }
+  .btn {
+    width: 100%; margin-top: 14px; padding: 12px;
+    background: var(--primary); color: #fff; border: 0;
+    border-radius: 10px; font-size: 1rem; font-weight: 700; cursor: pointer;
+  }
+  .btn:hover { background: var(--primary-dark); }
+  .btn-secondary {
+    background: #f8fafc; color: var(--text); border: 1px solid var(--border);
+    padding: 8px 12px; border-radius: 9px; cursor: pointer; font-size: .85rem;
+  }
+  .btn-secondary:hover { background: #eef2ff; }
+  .toolbar {
+    display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 12px;
+  }
+  .toolbar input, .toolbar select { width: auto; flex: 1; min-width: 140px; }
+  .stats {
+    display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 12px;
+    font-size: .85rem; color: var(--muted);
+  }
+  .stats strong { color: var(--text); }
+  .task {
+    border: 1px solid var(--border); border-left-width: 6px;
+    border-radius: 12px; padding: 12px 14px; margin-bottom: 10px; background: #fff;
+  }
+  .task.completada { opacity: .65; }
+  .task.completada .task-name { text-decoration: line-through; }
+  .task-top { display: flex; justify-content: space-between; gap: 10px; align-items: flex-start; }
+  .task-name { font-weight: 700; font-size: 1.02rem; margin: 0; }
+  .badge {
+    flex-shrink: 0; font-size: .72rem; font-weight: 800; text-transform: uppercase;
+    letter-spacing: .04em; padding: 4px 10px; border-radius: 999px; color: #fff;
+  }
+  .p-critica { background: var(--critica); border-left-color: var(--critica) !important; }
+  .p-alta { background: var(--alta); border-left-color: var(--alta) !important; }
+  .p-media { background: var(--media); border-left-color: var(--media) !important; }
+  .p-baja { background: var(--baja); border-left-color: var(--baja) !important; }
+  .p-muy-baja { background: var(--muybaja); border-left-color: var(--muybaja) !important; }
+  .meta { font-size: .85rem; color: var(--muted); margin: 6px 0; display: flex; gap: 12px; flex-wrap: wrap; }
+  .overdue { color: var(--critica); font-weight: 700; }
+  .comments {
+    background: #f8fafc; border: 1px dashed var(--border); border-radius: 8px;
+    padding: 8px 10px; font-size: .88rem; margin: 8px 0; white-space: pre-wrap;
+  }
+  .actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 8px; }
+  .actions button { padding: 7px 11px; border-radius: 8px; border: 1px solid var(--border); background: #fff; cursor: pointer; font-size: .83rem; }
+  .actions button:hover { background: #f1f5f9; }
+  .actions .done { border-color: #16a34a; color: #16a34a; }
+  .actions .del { border-color: #fecaca; color: var(--critica); }
+  .empty { text-align: center; color: var(--muted); padding: 30px 10px; border: 1px dashed var(--border); border-radius: 12px; background: #fff; }
+  .hint { font-size: .8rem; color: var(--muted); margin-top: 10px; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>✅ Organizador de Tareas</h1>
+  <p>Orden automático de más prioritaria (crítica) a menos prioritaria (muy baja)</p>
+</header>
+
+<main>
+  <!-- FORMULARIO -->
+  <section class="card">
+    <h2>Añadir nueva tarea</h2>
+    <form id="form">
+      <label for="nombre">Nombre de la tarea *</label>
+      <input id="nombre" type="text" placeholder="Ej: Entregar informe trimestral" required maxlength="120" />
+
+      <label for="fecha">Fecha *</label>
+      <input id="fecha" type="date" required />
+
+      <label for="prioridad">Prioridad *</label>
+      <select id="prioridad" required>
+        <option value="">-- Selecciona prioridad --</option>
+        <option value="critica">🔴 Crítica</option>
+        <option value="alta">🟠 Alta</option>
+        <option value="media">🟡 Media</option>
+        <option value="baja">🔵 Baja</option>
+        <option value="muy baja">⚪ Muy baja</option>
+      </select>
+
+      <label for="comentarios">Comentarios / información adicional</label>
+      <textarea id="comentarios" placeholder="Ej: Detalles, enlaces, subtareas, persona responsable..."></textarea>
+
+      <button class="btn" type="submit" id="submitBtn">Añadir tarea</button>
+      <button class="btn-secondary" type="button" id="cancelEdit" style="display:none;width:100%;margin-top:8px;">Cancelar edición</button>
+      <p class="hint">Las tareas se ordenan solas: primero por prioridad (crítica → muy baja) y después por fecha más próxima.</p>
+    </form>
+  </section>
+
+  <!-- LISTA -->
+  <section class="card">
+    <h2>Mis tareas</h2>
+    <div class="toolbar">
+      <input id="buscar" type="search" placeholder="🔍 Buscar por nombre o comentario..." />
+      <select id="filtroPrioridad">
+        <option value="">Todas las prioridades</option>
+        <option value="critica">Crítica</option>
+        <option value="alta">Alta</option>
+        <option value="media">Media</option>
+        <option value="baja">Baja</option>
+        <option value="muy baja">Muy baja</option>
+      </select>
+      <select id="filtroEstado">
+        <option value="pendientes">Pendientes</option>
+        <option value="todas">Todas (incluidas completadas)</option>
+        <option value="completadas">Solo completadas</option>
+      </select>
+    </div>
+    <div class="stats" id="stats"></div>
+    <div id="lista"></div>
+    <div style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap;">
+      <button class="btn-secondary" id="limpiarCompletadas">Borrar completadas</button>
+      <button class="btn-secondary" id="borrarTodo">Borrar todo</button>
+    </div>
+  </section>
+</main>
+
+<script>
+const ORDEN = { "critica": 0, "alta": 1, "media": 2, "baja": 3, "muy baja": 4 };
+const ETIQUETA = { "critica": "Crítica", "alta": "Alta", "media": "Media", "baja": "Baja", "muy baja": "Muy baja" };
+const CLASE = { "critica": "p-critica", "alta": "p-alta", "media": "p-media", "baja": "p-baja", "muy baja": "p-muy-baja" };
+const KEY = "tareas_prioridad_v1";
+
+let tareas = load();
+let editId = null;
+
+const form = document.getElementById("form");
+const nombreEl = document.getElementById("nombre");
+const fechaEl = document.getElementById("fecha");
+const prioridadEl = document.getElementById("prioridad");
+const comentariosEl = document.getElementById("comentarios");
+const listaEl = document.getElementById("lista");
+const statsEl = document.getElementById("stats");
+const buscarEl = document.getElementById("buscar");
+const filtroPrioridadEl = document.getElementById("filtroPrioridad");
+const filtroEstadoEl = document.getElementById("filtroEstado");
+
+// Fecha mínima = hoy para el input
+fechaEl.min = new Date().toISOString().slice(0, 10);
+
+function load() {
+  try { return JSON.parse(localStorage.getItem(KEY)) || []; }
+  catch { return []; }
+}
+function save() { localStorage.setItem(KEY, JSON.stringify(tareas)); }
+
+function ordenar(arr) {
+  return [...arr].sort((a, b) => {
+    const p = (ORDEN[a.prioridad] ?? 99) - (ORDEN[b.prioridad] ?? 99);
+    if (p !== 0) return p;
+    if (a.fecha < b.fecha) return -1;
+    if (a.fecha > b.fecha) return 1;
+    return b.creada - a.creada;
+  });
+}
+
+function formatoFecha(iso) {
+  if (!iso) return "Sin fecha";
+  const [y, m, d] = iso.split("-").map(Number);
+  const f = new Date(y, m - 1, d);
+  return f.toLocaleDateString("es-ES", { weekday: "short", day: "numeric", month: "short", year: "numeric" });
+}
+
+function esVencida(t) {
+  if (t.completada) return false;
+  const hoy = new Date().toISOString().slice(0, 10);
+  return t.fecha < hoy;
+}
+
+function esc(s) {
+  return String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+}
+
+form.addEventListener("submit", e => {
+  e.preventDefault();
+  const nombre = nombreEl.value.trim();
+  const fecha = fechaEl.value;
+  const prioridad = prioridadEl.value;
+  const comentarios = comentariosEl.value.trim();
+  if (!nombre || !fecha || !prioridad) { alert("Completa nombre, fecha y prioridad."); return; }
+
+  if (editId) {
+    const t = tareas.find(t => t.id === editId);
+    if (t) Object.assign(t, { nombre, fecha, prioridad, comentarios });
+    editId = null;
+    document.getElementById("submitBtn").textContent = "Añadir tarea";
+    document.getElementById("cancelEdit").style.display = "none";
+  } else {
+    tareas.push({ id: Date.now().toString(), nombre, fecha, prioridad, comentarios, completada: false, creada: Date.now() });
+  }
+  save(); form.reset(); render();
+});
+
+document.getElementById("cancelEdit").addEventListener("click", () => {
+  editId = null; form.reset();
+  document.getElementById("submitBtn").textContent = "Añadir tarea";
+  document.getElementById("cancelEdit").style.display = "none";
+});
+
+[buscarEl, filtroPrioridadEl, filtroEstadoEl].forEach(el => el.addEventListener("input", render));
+
+document.getElementById("limpiarCompletadas").addEventListener("click", () => {
+  tareas = tareas.filter(t => !t.completada);
+  save(); render();
+});
+document.getElementById("borrarTodo").addEventListener("click", () => {
+  if (confirm("¿Borrar todas las tareas?")) { tareas = []; save(); render(); }
+});
+
+listaEl.addEventListener("click", e => {
+  const btn = e.target.closest("button[data-act]");
+  if (!btn) return;
+  const id = btn.dataset.id;
+  const t = tareas.find(t => t.id === id);
+  if (!t) return;
+  const act = btn.dataset.act;
+  if (act === "done") t.completada = !t.completada;
+  if (act === "del" && confirm("¿Eliminar esta tarea?")) tareas = tareas.filter(x => x.id !== id);
+  if (act === "edit") {
+    editId = id;
+    nombreEl.value = t.nombre; fechaEl.value = t.fecha;
+    prioridadEl.value = t.prioridad; comentariosEl.value = t.comentarios || "";
+    document.getElementById("submitBtn").textContent = "Guardar cambios";
+    document.getElementById("cancelEdit").style.display = "block";
+    window.scrollTo({ top: 0, behavior: "smooth" });
+    return;
+  }
+  save(); render();
+});
+
+function render() {
+  const q = buscarEl.value.trim().toLowerCase();
+  const fp = filtroPrioridadEl.value;
+  const fe = filtroEstadoEl.value;
+
+  let vista = tareas.filter(t => {
+    if (fe === "pendientes" && t.completada) return false;
+    if (fe === "completadas" && !t.completada) return false;
+    if (fp && t.prioridad !== fp) return false;
+    if (q && !(t.nombre.toLowerCase().includes(q) || (t.comentarios || "").toLowerCase().includes(q))) return false;
+    return true;
+  });
+  vista = ordenar(vista);
+
+  const pend = tareas.filter(t => !t.completada).length;
+  statsEl.innerHTML = `<span><strong>${tareas.length}</strong> tareas</span><span><strong>${pend}</strong> pendientes</span><span>Orden: prioridad → fecha</span>`;
+
+  if (!vista.length) {
+    listaEl.innerHTML = `<div class="empty">No hay tareas aquí.<br>➕ Añade tu primera tarea con el formulario.</div>`;
+    return;
+  }
+
+  listaEl.innerHTML = vista.map(t => `
+    <article class="task ${CLASE[t.prioridad] || ""} ${t.completada ? "completada" : ""}">
+      <div class="task-top">
+        <p class="task-name">${esc(t.nombre)}</p>
+        <span class="badge ${CLASE[t.prioridad] || ""}">${esc(ETIQUETA[t.prioridad] || t.prioridad)}</span>
+      </div>
+      <div class="meta">
+        <span>📅 ${esc(formatoFecha(t.fecha))}</span>
+        ${esVencida(t) ? `<span class="overdue">⚠️ Vencida</span>` : ""}
+        ${t.completada ? `<span>✔️ Completada</span>` : ""}
+      </div>
+      ${t.comentarios ? `<div class="comments">💬 ${esc(t.comentarios)}</div>` : ""}
+      <div class="actions">
+        <button data-act="done" data-id="${t.id}" class="done">${t.completada ? "↩️ Reabrir" : "✔️ Completar"}</button>
+        <button data-act="edit" data-id="${t.id}">✏️ Editar</button>
+        <button data-act="del" data-id="${t.id}" class="del">🗑️ Eliminar</button>
+      </div>
+    </article>
+  `).join("");
+}
+
+render();
+</script>
+</body>
+</html>
