@@ -102,6 +102,12 @@
   .actions .del { border-color: #fecaca; color: var(--critica); }
   .empty { text-align: center; color: var(--muted); padding: 30px 10px; border: 1px dashed var(--border); border-radius: 12px; background: #fff; }
   .hint { font-size: .8rem; color: var(--muted); margin-top: 10px; }
+  .top-badges { display: flex; gap: 6px; flex-shrink: 0; flex-wrap: wrap; justify-content: flex-end; }
+  .apartado {
+    font-size: .72rem; font-weight: 700; padding: 4px 10px; border-radius: 999px;
+    background: #eef2ff; color: #4338ca; border: 1px solid #c7d2fe;
+    white-space: nowrap;
+  }
 </style>
 </head>
 <body>
@@ -132,6 +138,15 @@
         <option value="muy baja">⚪ Muy baja</option>
       </select>
 
+      <label for="apartado">Apartado *</label>
+      <select id="apartado" required>
+        <option value="">-- Selecciona apartado --</option>
+        <option value="Presupuestos">💰 Presupuestos</option>
+        <option value="Facturación">🧾 Facturación</option>
+        <option value="Documentación">📄 Documentación</option>
+        <option value="Tareas varias">📌 Tareas varias</option>
+      </select>
+
       <label for="comentarios">Comentarios / información adicional</label>
       <textarea id="comentarios" placeholder="Ej: Detalles, enlaces, subtareas, persona responsable..."></textarea>
 
@@ -154,6 +169,13 @@
         <option value="baja">Baja</option>
         <option value="muy baja">Muy baja</option>
       </select>
+      <select id="filtroApartado">
+        <option value="">Todos los apartados</option>
+        <option value="Presupuestos">Presupuestos</option>
+        <option value="Facturación">Facturación</option>
+        <option value="Documentación">Documentación</option>
+        <option value="Tareas varias">Tareas varias</option>
+      </select>
       <select id="filtroEstado">
         <option value="pendientes">Pendientes</option>
         <option value="todas">Todas (incluidas completadas)</option>
@@ -173,30 +195,69 @@
 const ORDEN = { "critica": 0, "alta": 1, "media": 2, "baja": 3, "muy baja": 4 };
 const ETIQUETA = { "critica": "Crítica", "alta": "Alta", "media": "Media", "baja": "Baja", "muy baja": "Muy baja" };
 const CLASE = { "critica": "p-critica", "alta": "p-alta", "media": "p-media", "baja": "p-baja", "muy baja": "p-muy-baja" };
+const APARTADOS = ["Presupuestos", "Facturación", "Documentación", "Tareas varias"];
 const KEY = "tareas_prioridad_v1";
 
 let tareas = load();
+// Compatibilidad: tareas antiguas sin apartado -> "Tareas varias"
+for (const t of tareas) {
+  if (!t.apartado || !APARTADOS.includes(t.apartado)) t.apartado = "Tareas varias";
+}
 let editId = null;
 
 const form = document.getElementById("form");
 const nombreEl = document.getElementById("nombre");
 const fechaEl = document.getElementById("fecha");
 const prioridadEl = document.getElementById("prioridad");
+const apartadoEl = document.getElementById("apartado");
 const comentariosEl = document.getElementById("comentarios");
 const listaEl = document.getElementById("lista");
 const statsEl = document.getElementById("stats");
 const buscarEl = document.getElementById("buscar");
 const filtroPrioridadEl = document.getElementById("filtroPrioridad");
+const filtroApartadoEl = document.getElementById("filtroApartado");
 const filtroEstadoEl = document.getElementById("filtroEstado");
 
 // Fecha mínima = hoy para el input
-fechaEl.min = new Date().toISOString().slice(0, 10);
+fechaEl.min = hoyLocalISO();
 
 function load() {
   try { return JSON.parse(localStorage.getItem(KEY)) || []; }
   catch { return []; }
 }
 function save() { localStorage.setItem(KEY, JSON.stringify(tareas)); }
+
+// --- Fechas y días laborales (lun-vie) ---
+function hoyLocalISO() {
+  const d = new Date();
+  return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");
+}
+function esLaboral(iso) {
+  const [y, m, d] = iso.split("-").map(Number);
+  const dia = new Date(y, m - 1, d).getDay(); // 0=dom, 6=sáb
+  return dia !== 0 && dia !== 6;
+}
+function siguienteDiaLaboral(desdeISO) {
+  let [y, m, d] = desdeISO.split("-").map(Number);
+  let f = new Date(y, m - 1, d);
+  while (f.getDay() === 0 || f.getDay() === 6) f.setDate(f.getDate() + 1);
+  return f.getFullYear() + "-" + String(f.getMonth() + 1).padStart(2, "0") + "-" + String(f.getDate()).padStart(2, "0");
+}
+// Al vencer la fecha, la tarea pasa automáticamente al siguiente día laboral.
+function reprogramarVencidas() {
+  const hoy = hoyLocalISO();
+  const objetivo = siguienteDiaLaboral(hoy);
+  let cambiadas = 0;
+  for (const t of tareas) {
+    if (!t.completada && t.fecha && t.fecha < hoy && t.fecha !== objetivo) {
+      t.fecha = objetivo;
+      t.reprogramada = true;
+      cambiadas++;
+    }
+  }
+  if (cambiadas > 0) save();
+  return cambiadas;
+}
 
 function ordenar(arr) {
   return [...arr].sort((a, b) => {
@@ -217,8 +278,7 @@ function formatoFecha(iso) {
 
 function esVencida(t) {
   if (t.completada) return false;
-  const hoy = new Date().toISOString().slice(0, 10);
-  return t.fecha < hoy;
+  return t.fecha < hoyLocalISO();
 }
 
 function esc(s) {
@@ -230,17 +290,18 @@ form.addEventListener("submit", e => {
   const nombre = nombreEl.value.trim();
   const fecha = fechaEl.value;
   const prioridad = prioridadEl.value;
+  const apartado = apartadoEl.value;
   const comentarios = comentariosEl.value.trim();
-  if (!nombre || !fecha || !prioridad) { alert("Completa nombre, fecha y prioridad."); return; }
+  if (!nombre || !fecha || !prioridad || !apartado) { alert("Completa nombre, fecha, prioridad y apartado."); return; }
 
   if (editId) {
     const t = tareas.find(t => t.id === editId);
-    if (t) Object.assign(t, { nombre, fecha, prioridad, comentarios });
+    if (t) Object.assign(t, { nombre, fecha, prioridad, apartado, comentarios, reprogramada: false });
     editId = null;
     document.getElementById("submitBtn").textContent = "Añadir tarea";
     document.getElementById("cancelEdit").style.display = "none";
   } else {
-    tareas.push({ id: Date.now().toString(), nombre, fecha, prioridad, comentarios, completada: false, creada: Date.now() });
+    tareas.push({ id: Date.now().toString(), nombre, fecha, prioridad, apartado, comentarios, completada: false, creada: Date.now() });
   }
   save(); form.reset(); render();
 });
@@ -251,7 +312,7 @@ document.getElementById("cancelEdit").addEventListener("click", () => {
   document.getElementById("cancelEdit").style.display = "none";
 });
 
-[buscarEl, filtroPrioridadEl, filtroEstadoEl].forEach(el => el.addEventListener("input", render));
+[buscarEl, filtroPrioridadEl, filtroApartadoEl, filtroEstadoEl].forEach(el => el.addEventListener("input", render));
 
 document.getElementById("limpiarCompletadas").addEventListener("click", () => {
   tareas = tareas.filter(t => !t.completada);
@@ -273,7 +334,7 @@ listaEl.addEventListener("click", e => {
   if (act === "edit") {
     editId = id;
     nombreEl.value = t.nombre; fechaEl.value = t.fecha;
-    prioridadEl.value = t.prioridad; comentariosEl.value = t.comentarios || "";
+    prioridadEl.value = t.prioridad; apartadoEl.value = t.apartado || "Tareas varias"; comentariosEl.value = t.comentarios || "";
     document.getElementById("submitBtn").textContent = "Guardar cambios";
     document.getElementById("cancelEdit").style.display = "block";
     window.scrollTo({ top: 0, behavior: "smooth" });
@@ -285,13 +346,15 @@ listaEl.addEventListener("click", e => {
 function render() {
   const q = buscarEl.value.trim().toLowerCase();
   const fp = filtroPrioridadEl.value;
+  const fa = filtroApartadoEl.value;
   const fe = filtroEstadoEl.value;
 
   let vista = tareas.filter(t => {
     if (fe === "pendientes" && t.completada) return false;
     if (fe === "completadas" && !t.completada) return false;
     if (fp && t.prioridad !== fp) return false;
-    if (q && !(t.nombre.toLowerCase().includes(q) || (t.comentarios || "").toLowerCase().includes(q))) return false;
+    if (fa && (t.apartado || "Tareas varias") !== fa) return false;
+    if (q && !(t.nombre.toLowerCase().includes(q) || (t.comentarios || "").toLowerCase().includes(q) || (t.apartado || "").toLowerCase().includes(q))) return false;
     return true;
   });
   vista = ordenar(vista);
@@ -308,11 +371,15 @@ function render() {
     <article class="task ${CLASE[t.prioridad] || ""} ${t.completada ? "completada" : ""}">
       <div class="task-top">
         <p class="task-name">${esc(t.nombre)}</p>
-        <span class="badge ${CLASE[t.prioridad] || ""}">${esc(ETIQUETA[t.prioridad] || t.prioridad)}</span>
+        <div class="top-badges">
+          <span class="apartado">📁 ${esc(t.apartado || "Tareas varias")}</span>
+          <span class="badge ${CLASE[t.prioridad] || ""}">${esc(ETIQUETA[t.prioridad] || t.prioridad)}</span>
+        </div>
       </div>
       <div class="meta">
         <span>📅 ${esc(formatoFecha(t.fecha))}</span>
         ${esVencida(t) ? `<span class="overdue">⚠️ Vencida</span>` : ""}
+        ${t.reprogramada && !t.completada ? `<span>⏩ Movida al siguiente día laboral</span>` : ""}
         ${t.completada ? `<span>✔️ Completada</span>` : ""}
       </div>
       ${t.comentarios ? `<div class="comments">💬 ${esc(t.comentarios)}</div>` : ""}
@@ -325,6 +392,7 @@ function render() {
   `).join("");
 }
 
+reprogramarVencidas();
 render();
 </script>
 </body>
