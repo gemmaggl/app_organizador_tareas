@@ -108,16 +108,83 @@
     background: #eef2ff; color: #4338ca; border: 1px solid #c7d2fe;
     white-space: nowrap;
   }
+
+  /* --- Columna izquierda --- */
+  .col { display: grid; gap: 18px; align-content: start; }
+
+  /* --- Calendario --- */
+  .cal-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+  .cal-head h2 { margin: 0; }
+  .cal-nav { display: flex; gap: 6px; }
+  .btn-secondary.nav { padding: 4px 11px; font-size: 1.05rem; line-height: 1.1; }
+  .cal-title {
+    font-weight: 700; font-size: .95rem; margin: 10px 0 8px; text-align: center;
+  }
+  .cal-dow-row, .cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; }
+  .cal-dow-row { margin-bottom: 4px; }
+  .cal-dow { text-align: center; font-size: .7rem; font-weight: 700; color: var(--muted); }
+  .cal-day {
+    border: 1px solid var(--border); border-radius: 9px; background: #fff;
+    padding: 5px 0 4px; cursor: pointer; font-family: inherit; font-size: .85rem;
+    color: inherit; display: flex; flex-direction: column; align-items: center;
+    justify-content: flex-start; min-height: 40px;
+  }
+  .cal-day:hover { background: #eef2ff; border-color: #c7d2fe; }
+  .cal-day.other { color: #cbd5e1; background: #f8fafc; }
+  .cal-day.today { border-color: var(--primary); color: var(--primary); font-weight: 700; }
+  .cal-day.selected { background: var(--primary); border-color: var(--primary); color: #fff; font-weight: 700; }
+  .dots { display: flex; gap: 3px; justify-content: center; align-items: center; height: 7px; margin-top: 4px; }
+  .dot { width: 5px; height: 5px; border-radius: 50%; display: block; }
+  .cal-day.selected .dot { box-shadow: 0 0 0 1px rgba(255,255,255,.85); }
+  .dot-critica { background: var(--critica); }
+  .dot-alta { background: var(--alta); }
+  .dot-media { background: var(--media); }
+  .dot-baja { background: var(--baja); }
+  .dot-muy-baja { background: var(--muybaja); }
+  .cal-foot { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: 12px; }
+  .cal-foot .hint { margin: 0; }
+
+  /* --- Cabecera de la lista --- */
+  .list-head {
+    display: flex; align-items: baseline; justify-content: space-between;
+    gap: 10px; flex-wrap: wrap; margin-bottom: 12px;
+  }
+  .list-head h2 { margin: 0; }
+  .list-date { font-size: .9rem; color: var(--muted); font-weight: 600; }
+  .list-date b { color: var(--primary); }
 </style>
 </head>
 <body>
 
 <header>
   <h1>✅ Organizador de Tareas</h1>
-  <p>Orden automático de más prioritaria (crítica) a menos prioritaria (muy baja)</p>
+  <p>Solo se muestran las tareas del día seleccionado · orden de más prioritaria (crítica) a menos prioritaria</p>
 </header>
 
 <main>
+  <div class="col">
+  <!-- CALENDARIO -->
+  <section class="card">
+    <div class="cal-head">
+      <h2>Calendario</h2>
+      <div class="cal-nav">
+        <button class="btn-secondary nav" type="button" id="calPrev" aria-label="Mes anterior">‹</button>
+        <button class="btn-secondary nav" type="button" id="calNext" aria-label="Mes siguiente">›</button>
+      </div>
+    </div>
+    <div class="cal-title" id="calTitle"></div>
+    <div class="cal-dow-row">
+      <span class="cal-dow">L</span><span class="cal-dow">M</span><span class="cal-dow">X</span>
+      <span class="cal-dow">J</span><span class="cal-dow">V</span><span class="cal-dow">S</span>
+      <span class="cal-dow">D</span>
+    </div>
+    <div class="cal-grid" id="calGrid"></div>
+    <div class="cal-foot">
+      <button class="btn-secondary" type="button" id="calHoy">Ir a hoy</button>
+      <span class="hint">● día con tareas</span>
+    </div>
+  </section>
+
   <!-- FORMULARIO -->
   <section class="card">
     <h2>Añadir nueva tarea</h2>
@@ -155,12 +222,17 @@
       <p class="hint">Las tareas se ordenan solas: primero por prioridad (crítica → muy baja) y después por fecha más próxima.</p>
     </form>
   </section>
+  </div>
 
   <!-- LISTA -->
   <section class="card">
-    <h2>Mis tareas</h2>
+    <div class="list-head">
+      <h2>Mis tareas</h2>
+      <span class="list-date" id="listaFecha"></span>
+    </div>
     <div class="toolbar">
       <input id="buscar" type="search" placeholder="🔍 Buscar por nombre o comentario..." />
+      <input id="filtroFecha" type="date" title="Día a mostrar" />
       <select id="filtroPrioridad">
         <option value="">Todas las prioridades</option>
         <option value="critica">Crítica</option>
@@ -195,6 +267,7 @@
 const ORDEN = { "critica": 0, "alta": 1, "media": 2, "baja": 3, "muy baja": 4 };
 const ETIQUETA = { "critica": "Crítica", "alta": "Alta", "media": "Media", "baja": "Baja", "muy baja": "Muy baja" };
 const CLASE = { "critica": "p-critica", "alta": "p-alta", "media": "p-media", "baja": "p-baja", "muy baja": "p-muy-baja" };
+const DOT = { "critica": "dot-critica", "alta": "dot-alta", "media": "dot-media", "baja": "dot-baja", "muy baja": "dot-muy-baja" };
 const APARTADOS = ["Presupuestos", "Facturación", "Documentación", "Tareas varias"];
 const KEY = "tareas_prioridad_v1";
 
@@ -204,6 +277,10 @@ for (const t of tareas) {
   if (!t.apartado || !APARTADOS.includes(t.apartado)) t.apartado = "Tareas varias";
 }
 let editId = null;
+// Día visible en pantalla (por defecto, hoy) y mes mostrado en el calendario
+let fechaSeleccionada = hoyLocalISO();
+let calAnio = Number(fechaSeleccionada.slice(0, 4));
+let calMes = Number(fechaSeleccionada.slice(5, 7)) - 1;
 
 const form = document.getElementById("form");
 const nombreEl = document.getElementById("nombre");
@@ -213,13 +290,19 @@ const apartadoEl = document.getElementById("apartado");
 const comentariosEl = document.getElementById("comentarios");
 const listaEl = document.getElementById("lista");
 const statsEl = document.getElementById("stats");
+const listaFechaEl = document.getElementById("listaFecha");
 const buscarEl = document.getElementById("buscar");
 const filtroPrioridadEl = document.getElementById("filtroPrioridad");
 const filtroApartadoEl = document.getElementById("filtroApartado");
 const filtroEstadoEl = document.getElementById("filtroEstado");
+const filtroFechaEl = document.getElementById("filtroFecha");
+const calTitleEl = document.getElementById("calTitle");
+const calGridEl = document.getElementById("calGrid");
 
 // Fecha mínima = hoy para el input
 fechaEl.min = hoyLocalISO();
+fechaEl.value = hoyLocalISO();
+filtroFechaEl.value = fechaSeleccionada;
 
 function load() {
   try { return JSON.parse(localStorage.getItem(KEY)) || []; }
@@ -276,6 +359,74 @@ function formatoFecha(iso) {
   return f.toLocaleDateString("es-ES", { weekday: "short", day: "numeric", month: "short", year: "numeric" });
 }
 
+// "martes, 20 de octubre"
+function formatoDia(iso) {
+  const [y, m, d] = iso.split("-").map(Number);
+  return new Date(y, m - 1, d).toLocaleDateString("es-ES", { weekday: "long", day: "numeric", month: "long" });
+}
+
+function isoDe(y, m, d) {
+  return y + "-" + String(m).padStart(2, "0") + "-" + String(d).padStart(2, "0");
+}
+
+// Cambia el día visible y sincroniza calendario + filtro de fecha
+function seleccionarDia(iso) {
+  if (!iso) return;
+  fechaSeleccionada = iso;
+  calAnio = Number(iso.slice(0, 4));
+  calMes = Number(iso.slice(5, 7)) - 1;
+  filtroFechaEl.value = iso;
+  // Prefijar la fecha del formulario si el día elegido no está en el pasado
+  if (iso >= hoyLocalISO()) fechaEl.value = iso;
+  render();
+}
+
+// Agrupa por día las prioridades presentes y el número de tareas
+function prioridadesPorDia() {
+  const mapa = new Map();
+  for (const t of tareas) {
+    if (!t.fecha) continue;
+    if (!mapa.has(t.fecha)) mapa.set(t.fecha, { prioridades: new Set(), total: 0 });
+    const e = mapa.get(t.fecha);
+    e.prioridades.add(t.prioridad);
+    e.total++;
+  }
+  return mapa;
+}
+
+// Dibuja el mes: los días con tareas muestran un punto (uno por prioridad presente)
+function renderCalendario() {
+  const hoy = hoyLocalISO();
+  const titulo = new Date(calAnio, calMes, 1).toLocaleDateString("es-ES", { month: "long", year: "numeric" });
+  calTitleEl.textContent = titulo.charAt(0).toUpperCase() + titulo.slice(1);
+
+  const porDia = prioridadesPorDia();
+  const primer = new Date(calAnio, calMes, 1);
+  const offset = (primer.getDay() + 6) % 7; // semana empezando en lunes
+  let html = "";
+
+  for (let i = 0; i < 42; i++) {
+    const f = new Date(primer.getFullYear(), primer.getMonth(), 1 - offset + i);
+    const iso = isoDe(f.getFullYear(), f.getMonth() + 1, f.getDate());
+    const clases = ["cal-day"];
+    if (f.getMonth() !== calMes) clases.push("other");
+    if (iso === hoy) clases.push("today");
+    if (iso === fechaSeleccionada) clases.push("selected");
+
+    const info = porDia.get(iso);
+    const dots = info && info.prioridades.size
+      ? [...info.prioridades].sort((a, b) => (ORDEN[a] ?? 99) - (ORDEN[b] ?? 99)).slice(0, 3)
+          .map(p => `<i class="dot ${DOT[p] || "dot-muy-baja"}"></i>`).join("")
+      : "";
+    const nTareas = info ? info.total : 0;
+
+    html += `<button type="button" class="${clases.join(" ")}" data-fecha="${iso}" `
+      + `title="${iso}${nTareas ? " · " + nTareas + " tarea(s)" : ""}">`
+      + `<span>${f.getDate()}</span><span class="dots">${dots}</span></button>`;
+  }
+  calGridEl.innerHTML = html;
+}
+
 function esVencida(t) {
   if (t.completada) return false;
   return t.fecha < hoyLocalISO();
@@ -303,11 +454,17 @@ form.addEventListener("submit", e => {
   } else {
     tareas.push({ id: Date.now().toString(), nombre, fecha, prioridad, apartado, comentarios, completada: false, creada: Date.now() });
   }
-  save(); form.reset(); render();
+  save(); resetForm(); seleccionarDia(fecha);
 });
 
+// Limpia el formulario dejando la fecha del día visible
+function resetForm() {
+  form.reset();
+  fechaEl.value = fechaSeleccionada >= hoyLocalISO() ? fechaSeleccionada : hoyLocalISO();
+}
+
 document.getElementById("cancelEdit").addEventListener("click", () => {
-  editId = null; form.reset();
+  editId = null; resetForm();
   document.getElementById("submitBtn").textContent = "Añadir tarea";
   document.getElementById("cancelEdit").style.display = "none";
 });
@@ -325,6 +482,7 @@ document.getElementById("borrarTodo").addEventListener("click", () => {
 listaEl.addEventListener("click", e => {
   const btn = e.target.closest("button[data-act]");
   if (!btn) return;
+  if (btn.dataset.act === "hoy") { seleccionarDia(hoyLocalISO()); return; }
   const id = btn.dataset.id;
   const t = tareas.find(t => t.id === id);
   if (!t) return;
@@ -343,13 +501,35 @@ listaEl.addEventListener("click", e => {
   save(); render();
 });
 
+// --- Calendario: navegación de mes, selección de día e "ir a hoy" ---
+document.getElementById("calPrev").addEventListener("click", () => {
+  calMes--;
+  if (calMes < 0) { calMes = 11; calAnio--; }
+  render();
+});
+document.getElementById("calNext").addEventListener("click", () => {
+  calMes++;
+  if (calMes > 11) { calMes = 0; calAnio++; }
+  render();
+});
+document.getElementById("calHoy").addEventListener("click", () => seleccionarDia(hoyLocalISO()));
+calGridEl.addEventListener("click", e => {
+  const btn = e.target.closest("button[data-fecha]");
+  if (btn) seleccionarDia(btn.dataset.fecha);
+});
+filtroFechaEl.addEventListener("change", () => {
+  if (filtroFechaEl.value) seleccionarDia(filtroFechaEl.value);
+});
+
 function render() {
   const q = buscarEl.value.trim().toLowerCase();
   const fp = filtroPrioridadEl.value;
   const fa = filtroApartadoEl.value;
   const fe = filtroEstadoEl.value;
+  const dia = fechaSeleccionada;
 
   let vista = tareas.filter(t => {
+    if ((t.fecha || "") !== dia) return false;
     if (fe === "pendientes" && t.completada) return false;
     if (fe === "completadas" && !t.completada) return false;
     if (fp && t.prioridad !== fp) return false;
@@ -359,11 +539,28 @@ function render() {
   });
   vista = ordenar(vista);
 
-  const pend = tareas.filter(t => !t.completada).length;
-  statsEl.innerHTML = `<span><strong>${tareas.length}</strong> tareas</span><span><strong>${pend}</strong> pendientes</span><span>Orden: prioridad → fecha</span>`;
+  const delDia = tareas.filter(t => (t.fecha || "") === dia);
+  const pend = delDia.filter(t => !t.completada).length;
+  const comp = delDia.length - pend;
+  statsEl.innerHTML = `<span><strong>${delDia.length}</strong> tareas el día</span>`
+    + `<span><strong>${pend}</strong> pendientes</span>`
+    + `<span><strong>${comp}</strong> completadas</span>`
+    + `<span><strong>${tareas.length}</strong> en total</span>`;
+
+  const esHoy = dia === hoyLocalISO();
+  listaFechaEl.innerHTML = esHoy ? `Hoy · <b>${esc(formatoDia(dia))}</b>` : esc(formatoDia(dia));
+
+  renderCalendario();
 
   if (!vista.length) {
-    listaEl.innerHTML = `<div class="empty">No hay tareas aquí.<br>➕ Añade tu primera tarea con el formulario.</div>`;
+    const conFiltros = !!(q || fp || fa || fe !== "pendientes");
+    listaEl.innerHTML = `<div class="empty">`
+      + (conFiltros
+        ? `Ninguna tarea coincide con los filtros para <strong>${esc(formatoDia(dia))}</strong>.`
+        : `No hay tareas para <strong>${esc(formatoDia(dia))}</strong>.`)
+      + `<br><span class="hint">${esHoy ? "➕ Añade tu primera tarea con el formulario." : "Cambia de día en el calendario o vuelve a hoy."}</span>`
+      + (esHoy ? "" : `<br><br><button class="btn-secondary" data-act="hoy">Ver el día de hoy</button>`)
+      + `</div>`;
     return;
   }
 

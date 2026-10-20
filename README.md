@@ -7,6 +7,9 @@ App web sencilla para organizar tareas según prioridad y fecha.
 - Añadir tareas con **nombre, fecha, prioridad y comentarios**.
 - Prioridades: `muy baja`, `baja`, `media`, `alta`, `crítica`.
 - **Orden automático**: de más prioritaria (crítica) a menos prioritaria (muy baja), y a igual prioridad por fecha más próxima.
+- **Vista por día**: en pantalla solo se muestran las tareas del día seleccionado (hoy por defecto).
+- **Calendario mensual**: los días que tienen tareas aparecen con un punto debajo del día (un punto por cada prioridad presente).
+- Navegación de mes (`‹` / `›`), botón **Ir a hoy** y filtro de fecha rápido en la barra de herramientas.
 - Marcar como completada / reabrir, editar y eliminar.
 - Buscador por nombre o comentario.
 - Filtros por prioridad y estado.
